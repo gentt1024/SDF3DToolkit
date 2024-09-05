@@ -1,0 +1,12 @@
+{
+	"name": "com.gentt1024.sdf3dtoolkit",
+	"displayName":"SDF3DToolkit",
+	"version": "0.1.0",
+	"unity": "2022.3",
+	"description": "SDF3DToolkit is a Unity toolkit for working with Signed Distance Fields (SDFs) in 3D space. \n\nThis toolkit provides utilities for creating, manipulating, and querying SDFs, which are useful for various applications such as procedural content generation, physics simulations, and more.",
+	"dependencies": {
+		"com.unity.mathematics": "1.2.6",
+		"com.unity.render-pipelines.universal": "14.0.8",
+		"com.unity.visualeffectgraph": "14.0.8"
+	}
+}

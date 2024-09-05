@@ -1,0 +1,22 @@
+﻿#pragma kernel CopyToBuffer
+
+RWTexture3D<float> input;
+uint3 dimensions;
+RWStructuredBuffer<float> buffer;
+
+uint id3(uint i, uint j, uint k)
+{
+    return i + dimensions.x * j + dimensions.x * dimensions.y * k;
+}
+
+uint id3(int3 coord)
+{
+    return id3(coord.x, coord.y, coord.z);
+}
+
+[numthreads(8, 8, 8)]
+void CopyToBuffer(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= dimensions.x || id.y >= dimensions.y || id.z >= dimensions.z) return;
+    buffer[id3(id.x, id.y, id.z)] = input[id];
+}

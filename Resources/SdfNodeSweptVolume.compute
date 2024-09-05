@@ -1,0 +1,37 @@
+﻿#pragma kernel SweptVolume
+
+#include "SdfUtil.hlsl"
+
+SDF_NODE_DEFS(sdf);
+SDF_NODE_DEFS(result);
+
+cbuffer SdfSweptVolumeBuffer
+{
+    StructuredBuffer<float4x4> inv_mats;
+    uint mats_count;
+};
+
+[numthreads(8, 8, 8)]
+void SweptVolume (uint3 id : SV_DispatchThreadID)
+{    
+    if (!is_inside(id, result_dimensions))
+        return;
+
+    float3 pos_result_space = (id + 0.5f) * result_voxel_size;
+    float3 pos_world_space = mul(result_mat, float4(pos_result_space, 1)).xyz;
+    
+    // Initialize with a large positive value
+    float min_sdf_value = 100;
+
+    // optimize the code by using [loop] here, it will generate code for each element in the buffer
+    [loop] for (int i = 0; i < mats_count; i++)
+    {
+        const float4x4 inv_mat = inv_mats[i];
+        const float3 pos = mul(inv_mat, float4(pos_world_space, 1)).xyz;
+        const float sdf_value = sample_sdf(SDF_NODE_VARS(sdf), pos);
+        min_sdf_value = min(min_sdf_value, sdf_value);
+    }
+
+    result[id] = min_sdf_value;
+}
+

@@ -1,0 +1,42 @@
+﻿#pragma kernel opUnion
+#pragma kernel opIntersection
+
+#include "SdfUtil.hlsl"
+
+SDF_NODE_DEFS(sdf1);
+SDF_NODE_DEFS(sdf2);
+SDF_NODE_DEFS(result);
+
+[numthreads(8, 8, 8)]
+void opUnion (uint3 id : SV_DispatchThreadID)
+{
+    if (!is_inside(id, result_dimensions))
+        return;
+
+    float3 pos_result_space = (id + 0.5f) * result_voxel_size;
+    
+    float3 pos = mul(result_mat, float4(pos_result_space, 1)).xyz;
+
+    float sdfValue1 = sample_sdf(SDF_NODE_VARS(sdf1), pos);
+    float sdfValue2 = sample_sdf(SDF_NODE_VARS(sdf2), pos);
+
+    // Combine SDF values using union operation
+    result[id] = min(1, min(sdfValue1, sdfValue2));
+}
+
+[numthreads(8, 8, 8)]
+void opIntersection (uint3 id : SV_DispatchThreadID)
+{
+    if (!is_inside(id, result_dimensions))
+        return;
+
+    float3 voxel_pos_result_space = (id + 0.5f) * result_voxel_size;
+    
+    float3 pos = mul(result_mat, float4(voxel_pos_result_space, 1)).xyz;
+
+    float sdfValue1 = sample_sdf(SDF_NODE_VARS(sdf1), pos);
+    float sdfValue2 = sample_sdf(SDF_NODE_VARS(sdf2), pos);
+
+    // Combine SDF values using intersection operation
+    result[id] = min(1, max(sdfValue1, sdfValue2));
+}
