@@ -1,0 +1,65 @@
+﻿#pragma kernel opUnion
+#pragma kernel opIntersection
+#pragma kernel opSubtraction
+
+#include "SdfUtil.hlsl"
+
+SDF_NODE_DEFS(sdf);
+SDF_NODE_DEFS(result);
+
+cbuffer SdfSphereCombinationBuffer
+{
+    float radius;
+    float3 center;
+};
+
+[numthreads(8, 8, 8)]
+void opUnion (uint3 id : SV_DispatchThreadID)
+{
+    if (!is_inside(id, result_dimensions))
+        return;
+
+    float3 pos_result_space = (id + 0.5f) * result_voxel_size;
+    
+    float3 pos = mul(result_mat, float4(pos_result_space, 1)).xyz;
+
+    float sdfValue = sample_sdf(SDF_NODE_VARS(sdf), pos);
+    float sdfSphereValue = sd_sphere(pos - center, radius);
+
+    // Combine SDF values using union operation
+    result[id] = op_union(sdfSphereValue, sdfValue);
+}
+
+[numthreads(8, 8, 8)]
+void opIntersection (uint3 id : SV_DispatchThreadID)
+{
+    if (!is_inside(id, result_dimensions))
+        return;
+
+    float3 voxel_pos_result_space = (id + 0.5f) * result_voxel_size;
+    
+    float3 pos = mul(result_mat, float4(voxel_pos_result_space, 1)).xyz;
+
+    float sdfValue = sample_sdf(SDF_NODE_VARS(sdf), pos);
+    float sdfSphereValue = sd_sphere(pos - center, radius);
+
+    // Combine SDF values using intersection operation
+    result[id] = op_intersection(sdfSphereValue, sdfValue);
+}
+
+[numthreads(8, 8, 8)]
+void opSubtraction (uint3 id : SV_DispatchThreadID)
+{
+    if (!is_inside(id, result_dimensions))
+        return;
+
+    float3 voxel_pos_result_space = (id + 0.5f) * result_voxel_size;
+    
+    float3 pos = mul(result_mat, float4(voxel_pos_result_space, 1)).xyz;
+
+    float sdfValue = sample_sdf(SDF_NODE_VARS(sdf), pos);
+    float sdfSphereValue = sd_sphere(pos - center, radius);
+
+    // Combine SDF values using subtraction operation
+    result[id] = op_subtraction(sdfSphereValue, sdfValue);
+}

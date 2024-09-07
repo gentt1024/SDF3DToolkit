@@ -24,11 +24,15 @@ namespace GTT.SDFTK
             public static readonly int Input = Shader.PropertyToID("input");
             public static readonly int Dimensions = Shader.PropertyToID("dimensions");
             public static readonly int Buffer = Shader.PropertyToID("buffer");
+            
+            public static readonly int Radius = Shader.PropertyToID("radius");
+            public static readonly int Center = Shader.PropertyToID("center");
         }
 
         private const string SDF_NODE_COMBINATIONS = "SdfNodeCombinations";
         private const string SDF_NODE_SWEEP_VOLUME = "SdfNodeSweptVolume";
         private const string COPY_TO_BUFFER = "CopyToBuffer";
+        private const string SDF_NODE_SPHERE_COMBINATIONS = "SdfNodeSphereCombinations";
 
         private static readonly Lazy<ComputeShader> SDFNodeCombinations = new(() =>
             Resources.Load<ComputeShader>(SDF_NODE_COMBINATIONS));
@@ -38,6 +42,9 @@ namespace GTT.SDFTK
 
         private static readonly Lazy<ComputeShader> SDFCopyToBuffer = new(() =>
             Resources.Load<ComputeShader>(COPY_TO_BUFFER));
+        
+        private static readonly Lazy<ComputeShader> SDFNodeSphereCombinations = new(() =>
+            Resources.Load<ComputeShader>(SDF_NODE_SPHERE_COMBINATIONS));
 
         private static float[] _dataBuffer1D;
         private static Vector3[] _dataBuffer3D;
@@ -149,6 +156,44 @@ namespace GTT.SDFTK
             int threadGroupsY = Math.Max(1, Mathf.CeilToInt(Dimensions[1] / 8.0f));
             int threadGroupsZ = Math.Max(1, Mathf.CeilToInt(Dimensions[2] / 8.0f));
             cs.Dispatch(kernelIndex, threadGroupsX, threadGroupsY, threadGroupsZ);
+        }
+        
+        public static SdfNode SphereSubtraction(SdfNode sdfNode, Vector3 center, float radius)
+        {
+            var bounds = sdfNode.GetWorldBounds();
+            var sphereBounds = new Bounds(center, Vector3.one * radius * 2);
+            if (!bounds.Intersects(sphereBounds))
+                return sdfNode.Copy();
+
+            var resultBounds = bounds;
+            resultBounds.Encapsulate(sphereBounds);
+
+            var cs = SDFNodeSphereCombinations.Value;
+            var voxelSize = sdfNode.VoxelSize;
+
+            var size = resultBounds.size;
+            Dimensions[0] = Mathf.CeilToInt(size.x / voxelSize);
+            Dimensions[1] = Mathf.CeilToInt(size.y / voxelSize);
+            Dimensions[2] = Mathf.CeilToInt(size.z / voxelSize);
+            var resultMat = Matrix4x4.TRS(resultBounds.min, Quaternion.identity, Vector3.one);
+
+            // create result texture
+            var resultSdf = CreateSdfRenderTexture(Dimensions);
+
+            // set shader parameters
+            var kernelIndex = cs.FindKernel("opSubtraction");
+            cs.SetSdfNode(kernelIndex, "sdf", sdfNode);
+            cs.SetSdfNode(kernelIndex, "result", resultSdf, resultMat, voxelSize);
+            cs.SetVector(ShaderProperties.Center, center);
+            cs.SetFloat(ShaderProperties.Radius, radius);
+
+            // execute shader
+            int threadGroupsX = Math.Max(1, Mathf.CeilToInt(Dimensions[0] / 8.0f));
+            int threadGroupsY = Math.Max(1, Mathf.CeilToInt(Dimensions[1] / 8.0f));
+            int threadGroupsZ = Math.Max(1, Mathf.CeilToInt(Dimensions[2] / 8.0f));
+            cs.Dispatch(kernelIndex, threadGroupsX, threadGroupsY, threadGroupsZ);
+
+            return new SdfNode(resultSdf, resultMat, voxelSize);
         }
         
         public static RenderTexture CopyTexture(RenderTexture src)

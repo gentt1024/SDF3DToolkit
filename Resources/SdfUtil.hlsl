@@ -68,3 +68,57 @@ float3 sample_sdf_gradient(SDF_NODE_ARGS(sdf), float3 world_pos)
     }
     return normalize(grad);
 }
+
+// ref: https://iquilezles.org/articles/distfunctions/
+
+float sd_sphere(float3 p, float s )
+{
+    return length(p)-s;
+}
+
+float sd_box(float3 p, float3 b )
+{
+    float3 q = abs(p) - b;
+    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
+float op_union(float d1, float d2 )
+{
+    return min(d1,d2);
+}
+
+float op_subtraction(float d1, float d2 )
+{
+    return max(-d1,d2);
+}
+
+float op_intersection(float d1, float d2 )
+{
+    return max(d1,d2);
+}
+
+float op_xor(float d1, float d2 )
+{
+    return max(min(d1,d2),-max(d1,d2));
+}
+
+float op_smooth_union(float d1, float d2, float k )
+{
+    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return lerp( d2, d1, h ) - k*h*(1.0-h);
+}
+
+float op_smooth_subtraction(float d1, float d2, float k )
+{
+    float h = clamp( 0.5 - 0.5*(d2+d1)/k, 0.0, 1.0 );
+    return lerp( d2, -d1, h ) + k*h*(1.0-h);
+}
+
+float op_smooth_intersection(float d1, float d2, float k )
+{
+    float h = clamp( 0.5 - 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return lerp( d2, d1, h ) + k*h*(1.0-h);
+}
+
+
+
